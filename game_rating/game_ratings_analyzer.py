@@ -1,5 +1,5 @@
-import sys
 import csv
+import sys
 
 
 def normalize_path(path):
