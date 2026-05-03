@@ -2,12 +2,15 @@ import pygame
 import random
 
 # Definitions
-WIDTH = 800
-HEIGHT = 800
+BOARD_SIZE = 800
+SCORE_PANEL_HEIGHT = 90
+WIDTH = BOARD_SIZE
+HEIGHT = BOARD_SIZE + SCORE_PANEL_HEIGHT
 GRID_SIZE = 4
-TILE_SIZE = WIDTH // GRID_SIZE
+TILE_SIZE = BOARD_SIZE // GRID_SIZE
 TILE_MARGIN = 3
 TEXT_SIZE = 60
+SCORE_TEXT_SIZE = 42
 
 # Colors​
 BG_COLOR = (187, 173, 160)
@@ -32,7 +35,7 @@ DEFAULT_TILE_COLOR = (60, 58, 50)
 def draw_cell(screen, row, col, value):
     rect = pygame.Rect(
         col * TILE_SIZE + TILE_MARGIN,
-        row * TILE_SIZE + TILE_MARGIN,
+        SCORE_PANEL_HEIGHT + row * TILE_SIZE + TILE_MARGIN,
         TILE_SIZE - TILE_MARGIN * 2,
         TILE_SIZE - TILE_MARGIN * 2,
     )
@@ -49,8 +52,16 @@ def draw_cell(screen, row, col, value):
         screen.blit(text_screen, (cell_x, cell_y))
 
 
+def draw_score(screen, score):
+    score_text = score_font.render(f"Score: {score}", True, TEXT_COLOR)
+    text_x = 20
+    text_y = (SCORE_PANEL_HEIGHT - score_text.get_height()) // 2
+    screen.blit(score_text, (text_x, text_y))
+
+
 # Board render
-def render_board(screen, board_map):
+def render_board(screen, board_map, score):
+    draw_score(screen, score)
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
             draw_cell(screen, row, col, board_map[row][col])
@@ -76,7 +87,6 @@ def handle_key(key_event, board):
             # Do nothing.
             pass
     total_score += turn_score
-    print(f"Total score: {total_score}")
     return new_board
 
 
@@ -160,6 +170,7 @@ if __name__ == "__main__":
     # pygame setup
     pygame.init()
     font = pygame.font.SysFont("Arial", TEXT_SIZE, bold=True)
+    score_font = pygame.font.SysFont("Arial", SCORE_TEXT_SIZE, bold=True)
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     running = True
@@ -183,7 +194,7 @@ if __name__ == "__main__":
         screen.fill(BG_COLOR)
 
         # RENDER YOUR GAME HERE
-        render_board(screen, board_map)
+        render_board(screen, board_map, total_score)
 
         # flip() the display to put your work on screen
         pygame.display.flip()
