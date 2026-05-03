@@ -11,6 +11,7 @@ TILE_SIZE = BOARD_SIZE // GRID_SIZE
 TILE_MARGIN = 3
 TEXT_SIZE = 60
 SCORE_TEXT_SIZE = 42
+NOTIFY_TEXT_SIZE = 30
 
 # Colors​
 BG_COLOR = (187, 173, 160)
@@ -57,6 +58,20 @@ def draw_score(screen, score):
     text_x = 20
     text_y = (SCORE_PANEL_HEIGHT - score_text.get_height()) // 2
     screen.blit(score_text, (text_x, text_y))
+
+
+def draw_game_over_notice(screen):
+    # Draw a dimmed layer to focus attention on the game over message.
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 140))
+    screen.blit(overlay, (0, 0))
+
+    message = notify_font.render("Play again? (y/n)", True, (255, 255, 255))
+
+    message_x = (WIDTH - message.get_width()) // 2
+    message_y = (HEIGHT - message.get_height()) // 2
+
+    screen.blit(message, (message_x, message_y))
 
 
 # Board render
@@ -161,6 +176,20 @@ def rotate_and_merge(rot, board):
     return new_board, score
 
 
+def has_valid_moves(board_map):
+    for row in range(GRID_SIZE):
+        for col in range(GRID_SIZE):
+            cell = board_map[row][col]
+            if cell == 0:
+                return True
+
+            if col + 1 < GRID_SIZE and cell == board_map[row][col + 1]:
+                return True
+            if row + 1 < GRID_SIZE and cell == board_map[row + 1][col]:
+                return True
+    return False
+
+
 if __name__ == "__main__":
     import pygame
 
@@ -171,9 +200,11 @@ if __name__ == "__main__":
     pygame.init()
     font = pygame.font.SysFont("Arial", TEXT_SIZE, bold=True)
     score_font = pygame.font.SysFont("Arial", SCORE_TEXT_SIZE, bold=True)
+    notify_font = pygame.font.SysFont("Arial", NOTIFY_TEXT_SIZE, bold=True)
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     running = True
+    game_over = False
 
     spawn_tile(board_map)
     while running:
@@ -183,18 +214,35 @@ if __name__ == "__main__":
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
+                if game_over:
+                    if event.key == pygame.K_y:
+                        board_map = [
+                            [0 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)
+                        ]
+                        total_score = 0
+                        spawn_tile(board_map)
+                        game_over = False
+                    elif event.key == pygame.K_n:
+                        running = False
+                    continue
+
                 if event.key == pygame.K_q:
                     running = False
+                    continue
                 new_board = handle_key(event.key, board_map)
                 if new_board is not None:
-                    board_map = new_board
-                    spawn_tile(board_map)
+                    if new_board != board_map:
+                        board_map = new_board
+                        spawn_tile(board_map)
+                    game_over = not has_valid_moves(board_map)
 
         # fill the screen with a color to wipe away anything from last frame
         screen.fill(BG_COLOR)
 
         # RENDER YOUR GAME HERE
         render_board(screen, board_map, total_score)
+        if game_over:
+            draw_game_over_notice(screen)
 
         # flip() the display to put your work on screen
         pygame.display.flip()

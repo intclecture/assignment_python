@@ -51,19 +51,19 @@ def test_ccw90():
     assert m[2] == [1, 4, 7]
 
 
-from game2048 import merge_row, rotate_and_merge
+from game2048 import has_valid_moves, merge_row, rotate_and_merge
 
 
 def test_merge_row():
-    new_row = merge_row([2, 2, 4, 0, 0])
+    new_row, _ = merge_row([2, 2, 4, 0, 0])
     assert len(new_row) == 5
     assert new_row == [4, 4, 0, 0, 0]
 
-    new_row = merge_row([0, 0, 0, 0, 4])
+    new_row, _ = merge_row([0, 0, 0, 0, 4])
     assert len(new_row) == 5
     assert new_row == [4, 0, 0, 0, 0]
 
-    new_row = merge_row([0, 4, 0, 0, 0])
+    new_row, _ = merge_row([0, 4, 0, 0, 0])
     assert len(new_row) == 5
     assert new_row == [4, 0, 0, 0, 0]
 
@@ -78,7 +78,7 @@ def test_rotate_and_merge():
     ]
 
     # Left
-    result = rotate_and_merge(0, board)
+    result, _ = rotate_and_merge(0, board)
     assert result == [
         [4, 4, 0, 0, 0],
         [4, 0, 0, 0, 0],
@@ -88,7 +88,7 @@ def test_rotate_and_merge():
     ]
 
     # Down
-    result = rotate_and_merge(1, board)
+    result, _ = rotate_and_merge(1, board)
     assert result == [
         [0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0],
@@ -98,7 +98,7 @@ def test_rotate_and_merge():
     ]
 
     # Right
-    result = rotate_and_merge(2, board)
+    result, _ = rotate_and_merge(2, board)
     assert result == [
         [0, 0, 0, 4, 4],
         [0, 0, 0, 0, 4],
@@ -108,7 +108,7 @@ def test_rotate_and_merge():
     ]
 
     # Up
-    result = rotate_and_merge(3, board)
+    result, _ = rotate_and_merge(3, board)
     assert result == [
         [2, 2, 4, 0, 4],
         [0, 4, 0, 0, 0],
@@ -116,3 +116,41 @@ def test_rotate_and_merge():
         [0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0],
     ]
+
+
+def test_has_valid_moves_when_empty_cell_exists():
+    # Not game over: at least one empty tile exists, so a new move can always be made.
+    board = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 0, 2],
+        [4, 8, 16, 32],
+    ]
+
+    assert has_valid_moves(board) is True
+
+
+def test_has_valid_moves_when_merge_exists():
+    # Not game over: no empty tiles, but the last row has adjacent equal values (32, 32)
+    # so a merge is possible.
+    board = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 32],
+    ]
+
+    assert has_valid_moves(board) is True
+
+
+def test_has_valid_moves_when_no_moves_left():
+    # Game over: board is full and there are no adjacent equal tiles horizontally
+    # or vertically, so no move can change the board.
+    board = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 64],
+    ]
+
+    assert has_valid_moves(board) is False
