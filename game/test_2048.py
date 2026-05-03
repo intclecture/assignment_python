@@ -51,7 +51,7 @@ def test_ccw90():
     assert m[2] == [1, 4, 7]
 
 
-from game2048 import has_valid_moves, merge_row, rotate_and_merge
+from game2048 import choose_auto_move, has_valid_moves, merge_row, rotate_and_merge
 
 
 def test_merge_row():
@@ -154,3 +154,41 @@ def test_has_valid_moves_when_no_moves_left():
     ]
 
     assert has_valid_moves(board) is False
+
+
+def test_choose_auto_move_returns_none_when_no_moves_left():
+    # Expectimax search should detect there are no valid moves and return None.
+    board = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 64],
+    ]
+
+    assert choose_auto_move(board) is None
+
+
+def test_choose_auto_move_returns_direction_when_move_available():
+    # At least one slide direction is valid; expectimax must pick one.
+    board = [
+        [2, 2, 4, 8],
+        [16, 32, 64, 128],
+        [256, 512, 1024, 2],
+        [4, 8, 16, 32],
+    ]
+
+    assert choose_auto_move(board) is not None
+
+
+def test_choose_auto_move_prefers_high_scoring_move():
+    import pygame
+    # Left slide merges [2,2] -> [4] and creates the most empty cells,
+    # so expectimax should prefer K_LEFT over any other direction.
+    board = [
+        [2, 2, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+    ]
+
+    assert choose_auto_move(board, depth=2) == pygame.K_LEFT

@@ -11,7 +11,9 @@ TILE_SIZE = BOARD_SIZE // GRID_SIZE
 TILE_MARGIN = 3
 TEXT_SIZE = 60
 SCORE_TEXT_SIZE = 42
+MODE_TEXT_SIZE = 24
 NOTIFY_TEXT_SIZE = 30
+AUTO_MOVE_DELAY_MS = 140
 
 # Colors​
 BG_COLOR = (187, 173, 160)
@@ -60,6 +62,14 @@ def draw_score(screen, score):
     screen.blit(score_text, (text_x, text_y))
 
 
+def draw_mode_status(screen, auto_mode):
+    mode_text = "AUTO: ON (A)" if auto_mode else "AUTO: OFF (A)"
+    mode_surface = mode_font.render(mode_text, True, TEXT_COLOR)
+    x = WIDTH - mode_surface.get_width() - 20
+    y = (SCORE_PANEL_HEIGHT - mode_surface.get_height()) // 2
+    screen.blit(mode_surface, (x, y))
+
+
 def draw_game_over_notice(screen):
     # Draw a dimmed layer to focus attention on the game over message.
     overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -75,8 +85,9 @@ def draw_game_over_notice(screen):
 
 
 # Board render
-def render_board(screen, board_map, score):
+def render_board(screen, board_map, score, auto_mode):
     draw_score(screen, score)
+    draw_mode_status(screen, auto_mode)
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
             draw_cell(screen, row, col, board_map[row][col])
@@ -190,6 +201,112 @@ def has_valid_moves(board_map):
     return False
 
 
+def count_empty_cells(board_map):
+    return sum(1 for row in board_map for cell in row if cell == 0)
+
+
+# --- Expectimax AI ---
+
+# Weights for the board evaluation heuristic.
+_EMPTY_WEIGHT = 270
+_MERGE_WEIGHT = 700
+_MONO_WEIGHT = 47
+
+# Snake-order monotonicity weights so high tiles gravitate to a corner.
+_SNAKE_WEIGHTS = [
+    [2**15, 2**14, 2**13, 2**12],
+    [2**8,  2**9,  2**10, 2**11],
+    [2**7,  2**6,  2**5,  2**4],
+    [2**0,  2**1,  2**2,  2**3],
+]
+
+
+def _board_score(board_map):
+    """Evaluate a board state without simulating further moves."""
+    empty = count_empty_cells(board_map)
+
+    # Sum of merged tile values (larger tiles kept together = higher score).
+    merge_val = 0
+    for row in board_map:
+        for cell in row:
+            merge_val += cell
+
+    # Monotonicity: dot-product of tile values with snake weights.
+    mono = sum(
+        board_map[r][c] * _SNAKE_WEIGHTS[r][c]
+        for r in range(GRID_SIZE)
+        for c in range(GRID_SIZE)
+    )
+
+    return _EMPTY_WEIGHT * empty + _MERGE_WEIGHT * merge_val + _MONO_WEIGHT * mono
+
+
+_ROTATIONS = {
+    pygame.K_UP: 3,
+    pygame.K_LEFT: 0,
+    pygame.K_RIGHT: 2,
+    pygame.K_DOWN: 1,
+}
+
+
+def _expectimax(board_map, depth, is_maximizer):
+    """
+    Expectimax tree search.
+
+    Maximizer nodes: pick the best player move.
+    Chance nodes: average over all possible tile spawns (2 with p=0.9, 4 with p=0.1).
+    """
+    if depth == 0 or not has_valid_moves(board_map):
+        return _board_score(board_map)
+
+    if is_maximizer:
+        best = -1
+        for rotation in _ROTATIONS.values():
+            next_board, _ = rotate_and_merge(rotation, board_map)
+            if next_board == board_map:
+                continue
+            val = _expectimax(next_board, depth - 1, False)
+            if val > best:
+                best = val
+        # No valid move found – return static eval.
+        return best if best >= 0 else _board_score(board_map)
+    else:
+        # Chance node: consider every empty cell with spawn probabilities.
+        empty_cells = [
+            (r, c)
+            for r in range(GRID_SIZE)
+            for c in range(GRID_SIZE)
+            if board_map[r][c] == 0
+        ]
+        if not empty_cells:
+            return _board_score(board_map)
+
+        total = 0.0
+        for r, c in empty_cells:
+            for value, prob in ((2, 0.9), (4, 0.1)):
+                child = [list(row) for row in board_map]
+                child[r][c] = value
+                total += prob * _expectimax(child, depth - 1, True)
+
+        return total / len(empty_cells)
+
+
+def choose_auto_move(board_map, depth=3):
+    """Return the pygame key constant for the best move found by expectimax."""
+    best_key = None
+    best_score = -1
+    for key, rotation in _ROTATIONS.items():
+        next_board, _ = rotate_and_merge(rotation, board_map)
+        if next_board == board_map:
+            continue
+        score = _expectimax(next_board, depth - 1, False)
+        if score > best_score:
+            best_score = score
+            best_key = key
+
+    return best_key
+
+
 if __name__ == "__main__":
     import pygame
 
@@ -200,11 +317,14 @@ if __name__ == "__main__":
     pygame.init()
     font = pygame.font.SysFont("Arial", TEXT_SIZE, bold=True)
     score_font = pygame.font.SysFont("Arial", SCORE_TEXT_SIZE, bold=True)
+    mode_font = pygame.font.SysFont("Arial", MODE_TEXT_SIZE, bold=True)
     notify_font = pygame.font.SysFont("Arial", NOTIFY_TEXT_SIZE, bold=True)
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     running = True
     game_over = False
+    auto_mode = False
+    last_auto_move_at = 0
 
     spawn_tile(board_map)
     while running:
@@ -229,6 +349,9 @@ if __name__ == "__main__":
                 if event.key == pygame.K_q:
                     running = False
                     continue
+                if event.key == pygame.K_a:
+                    auto_mode = not auto_mode
+                    continue
                 new_board = handle_key(event.key, board_map)
                 if new_board is not None:
                     if new_board != board_map:
@@ -236,11 +359,25 @@ if __name__ == "__main__":
                         spawn_tile(board_map)
                     game_over = not has_valid_moves(board_map)
 
+        if auto_mode and not game_over:
+            now = pygame.time.get_ticks()
+            if now - last_auto_move_at >= AUTO_MOVE_DELAY_MS:
+                ai_key = choose_auto_move(board_map)
+                if ai_key is None:
+                    game_over = True
+                else:
+                    new_board = handle_key(ai_key, board_map)
+                    if new_board is not None and new_board != board_map:
+                        board_map = new_board
+                        spawn_tile(board_map)
+                    game_over = not has_valid_moves(board_map)
+                last_auto_move_at = now
+
         # fill the screen with a color to wipe away anything from last frame
         screen.fill(BG_COLOR)
 
         # RENDER YOUR GAME HERE
-        render_board(screen, board_map, total_score)
+        render_board(screen, board_map, total_score, auto_mode)
         if game_over:
             draw_game_over_notice(screen)
 
