@@ -215,9 +215,9 @@ _MONO_WEIGHT = 47
 # Snake-order monotonicity weights so high tiles gravitate to a corner.
 _SNAKE_WEIGHTS = [
     [2**15, 2**14, 2**13, 2**12],
-    [2**8,  2**9,  2**10, 2**11],
-    [2**7,  2**6,  2**5,  2**4],
-    [2**0,  2**1,  2**2,  2**3],
+    [2**8, 2**9, 2**10, 2**11],
+    [2**7, 2**6, 2**5, 2**4],
+    [2**0, 2**1, 2**2, 2**3],
 ]
 
 
@@ -249,6 +249,45 @@ _ROTATIONS = {
 }
 
 
+def _is_terminal_node(board_map, depth):
+    return depth == 0 or not has_valid_moves(board_map)
+
+
+def _expectimax_max_node(board_map, depth):
+    best = -1
+    for rotation in _ROTATIONS.values():
+        next_board, _ = rotate_and_merge(rotation, board_map)
+        if next_board == board_map:
+            continue
+        val = _expectimax(next_board, depth - 1, False)
+        if val > best:
+            best = val
+
+    # No valid move found – return static eval.
+    return best if best >= 0 else _board_score(board_map)
+
+
+def _expectimax_chance_node(board_map, depth):
+    # Chance node: consider every empty cell with spawn probabilities.
+    empty_cells = [
+        (r, c)
+        for r in range(GRID_SIZE)
+        for c in range(GRID_SIZE)
+        if board_map[r][c] == 0
+    ]
+    if not empty_cells:
+        return _board_score(board_map)
+
+    total = 0.0
+    for r, c in empty_cells:
+        for value, prob in ((2, 0.9), (4, 0.1)):
+            child = [list(row) for row in board_map]
+            child[r][c] = value
+            total += prob * _expectimax(child, depth - 1, True)
+
+    return total / len(empty_cells)
+
+
 def _expectimax(board_map, depth, is_maximizer):
     """
     Expectimax tree search.
@@ -256,39 +295,12 @@ def _expectimax(board_map, depth, is_maximizer):
     Maximizer nodes: pick the best player move.
     Chance nodes: average over all possible tile spawns (2 with p=0.9, 4 with p=0.1).
     """
-    if depth == 0 or not has_valid_moves(board_map):
+    if _is_terminal_node(board_map, depth):
         return _board_score(board_map)
 
     if is_maximizer:
-        best = -1
-        for rotation in _ROTATIONS.values():
-            next_board, _ = rotate_and_merge(rotation, board_map)
-            if next_board == board_map:
-                continue
-            val = _expectimax(next_board, depth - 1, False)
-            if val > best:
-                best = val
-        # No valid move found – return static eval.
-        return best if best >= 0 else _board_score(board_map)
-    else:
-        # Chance node: consider every empty cell with spawn probabilities.
-        empty_cells = [
-            (r, c)
-            for r in range(GRID_SIZE)
-            for c in range(GRID_SIZE)
-            if board_map[r][c] == 0
-        ]
-        if not empty_cells:
-            return _board_score(board_map)
-
-        total = 0.0
-        for r, c in empty_cells:
-            for value, prob in ((2, 0.9), (4, 0.1)):
-                child = [list(row) for row in board_map]
-                child[r][c] = value
-                total += prob * _expectimax(child, depth - 1, True)
-
-        return total / len(empty_cells)
+        return _expectimax_max_node(board_map, depth)
+    return _expectimax_chance_node(board_map, depth)
 
 
 def choose_auto_move(board_map, depth=3):

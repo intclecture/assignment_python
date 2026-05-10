@@ -1,0 +1,39 @@
+@startuml
+
+node "움직임 선택" as Max
+
+'방향 선택
+node "Up" as Up
+node "Down" as Down
+node "Left" as Left
+node "Right" as Right
+
+'Chance 노드
+circle "Chance" as C1
+circle "Chance" as C2
+circle "Chance" as C3
+circle "Chance" as C4
+
+'최종 가치 노드
+card "2 생성(90%): 80점\n4 생성(10%): 10점\n--\n<b>기댓값: 73</b>" as V1 #D5E8D4
+card "2 생성(90%): 30점\n4 생성(10%): 30점\n--\n<b>기댓값: 30</b>" as V2
+card "2 생성(90%): 50점\n4 생성(10%): 60점\n--\n<b>기댓값: 51</b>" as V3
+card "2 생성(90%): 10점\n4 생성(10%): 0점\n--\n<b>기댓값: 9</b>" as V4
+
+'연결
+Max --> Up
+Max --> Down
+Max --> Left
+Max --> Right
+
+Up --> C1
+Down --> C2
+Left --> C3
+Right --> C4
+
+C1 --> V1
+C2 --> V2
+C3 --> V3
+C4 --> V4
+
+@enduml

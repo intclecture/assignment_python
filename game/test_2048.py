@@ -51,7 +51,17 @@ def test_ccw90():
     assert m[2] == [1, 4, 7]
 
 
-from game2048 import choose_auto_move, has_valid_moves, merge_row, rotate_and_merge
+from game2048 import (
+    _board_score,
+    _expectimax_chance_node,
+    _expectimax_max_node,
+    _expectimax,
+    choose_auto_move,
+    count_empty_cells,
+    has_valid_moves,
+    merge_row,
+    rotate_and_merge,
+)
 
 
 def test_merge_row():
@@ -182,6 +192,7 @@ def test_choose_auto_move_returns_direction_when_move_available():
 
 def test_choose_auto_move_prefers_high_scoring_move():
     import pygame
+
     # Left slide merges [2,2] -> [4] and creates the most empty cells,
     # so expectimax should prefer K_LEFT over any other direction.
     board = [
@@ -192,3 +203,108 @@ def test_choose_auto_move_prefers_high_scoring_move():
     ]
 
     assert choose_auto_move(board, depth=2) == pygame.K_LEFT
+
+
+def test_count_empty_cells_counts_zeros_only():
+    board = [
+        [2, 0, 4, 0],
+        [0, 8, 16, 0],
+        [32, 64, 128, 256],
+        [0, 0, 0, 0],
+    ]
+
+    assert count_empty_cells(board) == 8
+
+
+def test_board_score_increases_when_adding_a_tile():
+    board_with_empty = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 0],
+    ]
+    board_with_two = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 2],
+    ]
+
+    assert _board_score(board_with_two) > _board_score(board_with_empty)
+
+
+def test_expectimax_depth_zero_returns_static_evaluation():
+    board = [
+        [2, 4, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+    ]
+
+    assert _expectimax(board, depth=0, is_maximizer=True) == _board_score(board)
+    assert _expectimax(board, depth=0, is_maximizer=False) == _board_score(board)
+
+
+def test_expectimax_returns_static_eval_for_terminal_board():
+    # No valid moves available.
+    board = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 64],
+    ]
+
+    assert _expectimax(board, depth=3, is_maximizer=True) == _board_score(board)
+
+
+def test_expectimax_chance_node_matches_weighted_spawn_average():
+    # Single empty cell so chance-node averaging is deterministic and easy to verify.
+    board = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 0],
+    ]
+
+    board_with_2 = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 2],
+    ]
+    board_with_4 = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 256],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 4],
+    ]
+
+    expected = 0.9 * _board_score(board_with_2) + 0.1 * _board_score(board_with_4)
+
+    assert _expectimax(board, depth=1, is_maximizer=False) == expected
+
+
+def test_expectimax_max_node_matches_dispatcher_branch():
+    board = [
+        [2, 2, 4, 8],
+        [16, 0, 64, 128],
+        [256, 512, 0, 2],
+        [4, 8, 16, 32],
+    ]
+
+    assert _expectimax_max_node(board, depth=2) == _expectimax(
+        board, depth=2, is_maximizer=True
+    )
+
+
+def test_expectimax_chance_node_matches_dispatcher_branch():
+    board = [
+        [2, 4, 8, 16],
+        [32, 64, 128, 0],
+        [512, 1024, 2, 4],
+        [8, 16, 32, 0],
+    ]
+
+    assert _expectimax_chance_node(board, depth=2) == _expectimax(
+        board, depth=2, is_maximizer=False
+    )
