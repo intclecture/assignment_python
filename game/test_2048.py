@@ -52,10 +52,10 @@ def test_ccw90():
 
 
 from game2048 import (
-    _board_score,
-    _expectimax_chance_node,
-    _expectimax_max_node,
-    _expectimax,
+    board_score,
+    expectimax_chance_node,
+    expectimax_max_node,
+    expectimax,
     choose_auto_move,
     count_empty_cells,
     has_valid_moves,
@@ -230,7 +230,7 @@ def test_board_score_increases_when_adding_a_tile():
         [8, 16, 32, 2],
     ]
 
-    assert _board_score(board_with_two) > _board_score(board_with_empty)
+    assert board_score(board_with_two) > board_score(board_with_empty)
 
 
 def test_expectimax_depth_zero_returns_static_evaluation():
@@ -241,8 +241,8 @@ def test_expectimax_depth_zero_returns_static_evaluation():
         [0, 0, 0, 0],
     ]
 
-    assert _expectimax(board, depth=0, is_maximizer=True) == _board_score(board)
-    assert _expectimax(board, depth=0, is_maximizer=False) == _board_score(board)
+    assert expectimax(board, depth=0, is_maximizer=True) == board_score(board)
+    assert expectimax(board, depth=0, is_maximizer=False) == board_score(board)
 
 
 def test_expectimax_returns_static_eval_for_terminal_board():
@@ -254,7 +254,7 @@ def test_expectimax_returns_static_eval_for_terminal_board():
         [8, 16, 32, 64],
     ]
 
-    assert _expectimax(board, depth=3, is_maximizer=True) == _board_score(board)
+    assert expectimax(board, depth=3, is_maximizer=True) == board_score(board)
 
 
 def test_expectimax_chance_node_matches_weighted_spawn_average():
@@ -279,9 +279,9 @@ def test_expectimax_chance_node_matches_weighted_spawn_average():
         [8, 16, 32, 4],
     ]
 
-    expected = 0.9 * _board_score(board_with_2) + 0.1 * _board_score(board_with_4)
+    expected = 0.9 * board_score(board_with_2) + 0.1 * board_score(board_with_4)
 
-    assert _expectimax(board, depth=1, is_maximizer=False) == expected
+    assert expectimax(board, depth=1, is_maximizer=False) == expected
 
 
 def test_expectimax_max_node_matches_dispatcher_branch():
@@ -292,7 +292,7 @@ def test_expectimax_max_node_matches_dispatcher_branch():
         [4, 8, 16, 32],
     ]
 
-    assert _expectimax_max_node(board, depth=2) == _expectimax(
+    assert expectimax_max_node(board, depth=2) == expectimax(
         board, depth=2, is_maximizer=True
     )
 
@@ -305,6 +305,6 @@ def test_expectimax_chance_node_matches_dispatcher_branch():
         [8, 16, 32, 0],
     ]
 
-    assert _expectimax_chance_node(board, depth=2) == _expectimax(
+    assert expectimax_chance_node(board, depth=2) == expectimax(
         board, depth=2, is_maximizer=False
     )

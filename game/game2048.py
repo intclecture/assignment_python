@@ -208,12 +208,12 @@ def count_empty_cells(board_map):
 # --- Expectimax AI ---
 
 # Weights for the board evaluation heuristic.
-_EMPTY_WEIGHT = 270
-_MERGE_WEIGHT = 700
-_MONO_WEIGHT = 47
+EMPTY_WEIGHT = 270
+MERGE_WEIGHT = 700
+MONO_WEIGHT = 47
 
 # Snake-order monotonicity weights so high tiles gravitate to a corner.
-_SNAKE_WEIGHTS = [
+SNAKE_WEIGHTS = [
     [2**15, 2**14, 2**13, 2**12],
     [2**8, 2**9, 2**10, 2**11],
     [2**7, 2**6, 2**5, 2**4],
@@ -221,7 +221,7 @@ _SNAKE_WEIGHTS = [
 ]
 
 
-def _board_score(board_map):
+def board_score(board_map):
     """Evaluate a board state without simulating further moves."""
     empty = count_empty_cells(board_map)
 
@@ -233,15 +233,15 @@ def _board_score(board_map):
 
     # Monotonicity: dot-product of tile values with snake weights.
     mono = sum(
-        board_map[r][c] * _SNAKE_WEIGHTS[r][c]
+        board_map[r][c] * SNAKE_WEIGHTS[r][c]
         for r in range(GRID_SIZE)
         for c in range(GRID_SIZE)
     )
 
-    return _EMPTY_WEIGHT * empty + _MERGE_WEIGHT * merge_val + _MONO_WEIGHT * mono
+    return EMPTY_WEIGHT * empty + MERGE_WEIGHT * merge_val + MONO_WEIGHT * mono
 
 
-_ROTATIONS = {
+ROTATIONS = {
     pygame.K_UP: 3,
     pygame.K_LEFT: 0,
     pygame.K_RIGHT: 2,
@@ -249,25 +249,25 @@ _ROTATIONS = {
 }
 
 
-def _is_terminal_node(board_map, depth):
+def is_terminal_node(board_map, depth):
     return depth == 0 or not has_valid_moves(board_map)
 
 
-def _expectimax_max_node(board_map, depth):
+def expectimax_max_node(board_map, depth):
     best = -1
-    for rotation in _ROTATIONS.values():
+    for rotation in ROTATIONS.values():
         next_board, _ = rotate_and_merge(rotation, board_map)
         if next_board == board_map:
             continue
-        val = _expectimax(next_board, depth - 1, False)
+        val = expectimax(next_board, depth - 1, False)
         if val > best:
             best = val
 
     # No valid move found – return static eval.
-    return best if best >= 0 else _board_score(board_map)
+    return best if best >= 0 else board_score(board_map)
 
 
-def _expectimax_chance_node(board_map, depth):
+def expectimax_chance_node(board_map, depth):
     # Chance node: consider every empty cell with spawn probabilities.
     empty_cells = [
         (r, c)
@@ -276,42 +276,42 @@ def _expectimax_chance_node(board_map, depth):
         if board_map[r][c] == 0
     ]
     if not empty_cells:
-        return _board_score(board_map)
+        return board_score(board_map)
 
     total = 0.0
     for r, c in empty_cells:
         for value, prob in ((2, 0.9), (4, 0.1)):
             child = [list(row) for row in board_map]
             child[r][c] = value
-            total += prob * _expectimax(child, depth - 1, True)
+            total += prob * expectimax(child, depth - 1, True)
 
     return total / len(empty_cells)
 
 
-def _expectimax(board_map, depth, is_maximizer):
+def expectimax(board_map, depth, is_maximizer):
     """
     Expectimax tree search.
 
     Maximizer nodes: pick the best player move.
     Chance nodes: average over all possible tile spawns (2 with p=0.9, 4 with p=0.1).
     """
-    if _is_terminal_node(board_map, depth):
-        return _board_score(board_map)
+    if is_terminal_node(board_map, depth):
+        return board_score(board_map)
 
     if is_maximizer:
-        return _expectimax_max_node(board_map, depth)
-    return _expectimax_chance_node(board_map, depth)
+        return expectimax_max_node(board_map, depth)
+    return expectimax_chance_node(board_map, depth)
 
 
 def choose_auto_move(board_map, depth=3):
     """Return the pygame key constant for the best move found by expectimax."""
     best_key = None
     best_score = -1
-    for key, rotation in _ROTATIONS.items():
+    for key, rotation in ROTATIONS.items():
         next_board, _ = rotate_and_merge(rotation, board_map)
         if next_board == board_map:
             continue
-        score = _expectimax(next_board, depth - 1, False)
+        score = expectimax(next_board, depth - 1, False)
         if score > best_score:
             best_score = score
             best_key = key
